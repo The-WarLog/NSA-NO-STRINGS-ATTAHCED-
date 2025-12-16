@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+websockets
+sqlmodel
+pymysql
+python-dotenv
+pydantic
+pymongo
+rich
+pyfiglet
+aioconsole
