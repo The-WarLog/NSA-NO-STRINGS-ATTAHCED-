@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css">
+    <title>NSA Chat</title>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">NO STRINGS ATTACHED</h1>
+        
+        <!-- Step 1: Create or Join Room -->
+        <div id="roomSection" class="card p-4 mb-3" style="max-width: 400px; margin: 0 auto;">
+            <h5 class="text-center mb-3">Get Started</h5>
+            <button class="btn btn-primary btn-block mb-2" id="createRoomBtn">Create New Chat Room</button>
+            <hr>
+            <div class="form-group">
+                <label for="joinIdInput">Or Join Existing Room</label>
+                <input type="text" class="form-control" id="joinIdInput" placeholder="Enter Room ID">
+            </div>
+            <button class="btn btn-success btn-block" id="joinRoomBtn">Join Room</button>
+            <div id="roomError" class="alert alert-danger mt-3" style="display: none;"></div>
+        </div>
+        
+        <!-- Step 2: Username Setup -->
+        <div id="usernameSection" class="card p-4 mb-3" style="max-width: 400px; margin: 0 auto; display: none;">
+            <h5 class="text-center mb-3">Enter Your Username</h5>
+            <div class="alert alert-info">
+                <strong>Room ID:</strong> <span id="displayJoinId"></span>
+            </div>
+            <input type="text" class="form-control mb-3" id="usernameInput" placeholder="Your username">
+            <button class="btn btn-success btn-block" id="setUsernameBtn">Enter Chat</button>
+        </div>
+        
+        <!-- Step 3: Chat Section -->
+        <div id="chatSection" style="display: none;">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <strong>Room:</strong> <span id="currentRoomId"></span> | 
+                    <strong>User:</strong> <span id="currentUsername"></span>
+                </div>
+                <div class="card-body" style="height: 400px; overflow-y: auto;">
+                    <ul id="Messages" style="list-style: none; padding: 0;"></ul>
+                </div>
+                <div class="card-footer">
+                    <form id="chatForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="MessageText" placeholder="Type your message...">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">Send</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+let currentUsername = null;
+let currentJoinId = null;
+let ws = null;
+const API_BASE = window.location.origin;
+const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const wsHost = window.location.host || 'localhost:8080';
+
+// Create new room
+document.getElementById('createRoomBtn').addEventListener('click', async () => {
+    try {
+        const res = await fetch(`${API_BASE}/chatrooms/create_chatroom/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        currentJoinId = data.join_id;
+        showUsernameSection();
+    } catch (e) {
+        showError('Failed to create room');
+    }
+});
+
+// Join existing room
+document.getElementById('joinRoomBtn').addEventListener('click', async () => {
+    const joinId = document.getElementById('joinIdInput').value.trim();
+    if (!joinId) return showError('Enter a room ID');
+    
+    try {
+        const res = await fetch(`${API_BASE}/chatrooms/check_chatroom/${joinId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({join_id: joinId})
+        });
+        if (res.ok) {
+            currentJoinId = joinId;
+            showUsernameSection();
+        } else {
+            showError('Room not found');
+        }
+    } catch (e) {
+        showError('Error joining room');
+    }
+});
+
+// Set username
+document.getElementById('setUsernameBtn').addEventListener('click', () => {
+    const username = document.getElementById('usernameInput').value.trim();
+    if (!username) return alert('Enter a username');
+    if (username.length > 20) return alert('Max 20 characters');
+    
+    currentUsername = username;
+    initializeWebSocket();
+    showChatSection();
+});
+
+document.getElementById('joinIdInput').addEventListener('keypress', e => {
+    if (e.key === 'Enter') document.getElementById('joinRoomBtn').click();
+});
+
+document.getElementById('usernameInput').addEventListener('keypress', e => {
+    if (e.key === 'Enter') document.getElementById('setUsernameBtn').click();
+});
+
+function showUsernameSection() {
+    document.getElementById('roomSection').style.display = 'none';
+    document.getElementById('usernameSection').style.display = 'block';
+    document.getElementById('displayJoinId').textContent = currentJoinId;
+}
+
+function showChatSection() {
+    document.getElementById('usernameSection').style.display = 'none';
+    document.getElementById('chatSection').style.display = 'block';
+    document.getElementById('currentRoomId').textContent = currentJoinId;
+    document.getElementById('currentUsername').textContent = currentUsername;
+}
+
+function showError(msg) {
+    const err = document.getElementById('roomError');
+    err.textContent = msg;
+    err.style.display = 'block';
+    setTimeout(() => err.style.display = 'none', 5000);
+}
+
+function initializeWebSocket() {
+    ws = new WebSocket(`${wsProtocol}://${wsHost}/ws/${currentJoinId}`);
+    
+    ws.onopen = () => addSystemMessage("Connected");
+    ws.onmessage = (e) => {
+        const list = document.getElementById("Messages");
+        const msg = document.createElement("li");
+        msg.className = "mb-2";
+        msg.innerHTML = `<div class="p-2 bg-light rounded">${e.data}</div>`;
+        list.appendChild(msg);
+        document.querySelector('.card-body').scrollTop = 999999;
+    };
+    ws.onerror = () => addSystemMessage("Error");
+    ws.onclose = () => addSystemMessage("Disconnected");
+}
+
+function addSystemMessage(msg) {
+    const list = document.getElementById("Messages");
+    const sys = document.createElement("li");
+    sys.innerHTML = `<div class="p-2 text-center"><em style="color:gray;">${msg}</em></div>`;
+    list.appendChild(sys);
+}
+
+document.getElementById("chatForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("MessageText");
+    const text = input.value.trim();
+    if (text && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(`${currentUsername}: ${text}`);
+        input.value = "";
+    }
+});
+</script>
+</body>
+</html>
