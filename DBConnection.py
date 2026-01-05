@@ -8,7 +8,7 @@ from model import ChatRoom
 
 load_dotenv()
 
-Database_url=os.getenv("")
+Database_url=os.getenv("DATABASE_URL")
 
 engine=create_engine(Database_url,echo=True)
 
