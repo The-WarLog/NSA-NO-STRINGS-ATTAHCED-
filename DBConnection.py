@@ -8,7 +8,7 @@ from model import ChatRoom
 
 load_dotenv()
 
-Database_url=os.getenv("DATABASE_URL")
+Database_url=os.getenv("MYSQL_DATABASE")
 
 engine=create_engine(Database_url,echo=True)
 
