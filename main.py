@@ -7,9 +7,11 @@ from typing import List, Annotated, Optional
 from SocketManager import SocketManager
 from routes import ManageChatroomsRoute
 from DBConnection import create_tables
- 
 
 app = FastAPI()
+app.on_event("startup")
+async def startup_event():
+    create_tables()
 # Mount static files
 app.mount("/static", StaticFiles(directory="public"), name="static")
 app.include_router(ManageChatroomsRoute.router,prefix="/chatrooms",tags=["chatrooms"])
