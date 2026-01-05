@@ -10,3 +10,4 @@ rich
 pyfiglet
 aioconsole
 psycopg2-binary>=2.9
+psycopg2
