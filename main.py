@@ -6,7 +6,7 @@ from fastapi.websockets import WebSocketDisconnect
 from typing import List, Annotated, Optional
 from SocketManager import SocketManager
 from routes import ManageChatroomsRoute
-
+from DBConnection import create_tables
  
 
 app = FastAPI()
